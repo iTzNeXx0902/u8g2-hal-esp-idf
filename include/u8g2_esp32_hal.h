@@ -12,8 +12,13 @@
 #include "u8g2.h"
 
 #include "driver/gpio.h"
-#include "driver/i2c.h"
 #include "driver/spi_master.h"
+#define USE_NEW_HAL_DRIVER
+#ifdef USE_NEW_HAL_DRIVER
+#include "driver/i2c_master.h"
+#else
+#include "driver/i2c.h"
+#endif
 
 #define U8G2_ESP32_HAL_UNDEFINED GPIO_NUM_NC
 
@@ -60,13 +65,12 @@ typedef struct {
 /**
  * Construct a default HAL configuration with all fields undefined.
  */
-#define U8G2_ESP32_HAL_DEFAULT                                        \
-  {                                                                   \
-    .bus = {.spi = {.clk = U8G2_ESP32_HAL_UNDEFINED,                  \
-                    .mosi = U8G2_ESP32_HAL_UNDEFINED,                 \
-                    .cs = U8G2_ESP32_HAL_UNDEFINED}},                 \
-    .reset = U8G2_ESP32_HAL_UNDEFINED, .dc = U8G2_ESP32_HAL_UNDEFINED \
-  }
+#define U8G2_ESP32_HAL_DEFAULT                       \
+  {.bus = {.spi = {.clk = U8G2_ESP32_HAL_UNDEFINED,  \
+                   .mosi = U8G2_ESP32_HAL_UNDEFINED, \
+                   .cs = U8G2_ESP32_HAL_UNDEFINED}}, \
+   .reset = U8G2_ESP32_HAL_UNDEFINED,                \
+   .dc = U8G2_ESP32_HAL_UNDEFINED}
 
 /**
  * Initialize the HAL with the given configuration.
