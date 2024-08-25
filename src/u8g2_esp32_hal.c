@@ -122,6 +122,8 @@ uint8_t u8g2_esp32_i2c_byte_cb(u8x8_t* u8x8,
                                void* arg_ptr) {
   ESP_LOGD(TAG, "i2c_cb: Received a msg: %d, arg_int: %d, arg_ptr: %p", msg,
            arg_int, arg_ptr);
+  static uint8_t buffer[32];
+  static uint8_t bufferHighPoint;
 
   switch (msg) {
     case U8X8_MSG_BYTE_SET_DC: {
@@ -182,12 +184,16 @@ uint8_t u8g2_esp32_i2c_byte_cb(u8x8_t* u8x8,
 
     case U8X8_MSG_BYTE_SEND: {
       uint8_t* data_ptr = (uint8_t*)arg_ptr;
-      ESP_LOG_BUFFER_HEXDUMP(TAG, data_ptr, arg_int, ESP_LOG_INFO);
+      ESP_LOG_BUFFER_HEXDUMP(TAG, data_ptr, arg_int, ESP_LOG_VERBOSE);
 
 #ifdef USE_NEW_HAL_DRIVER
-      ESP_ERROR_CHECK(
-          i2c_master_transmit(dev_handle, data_ptr, arg_int, I2C_TIMEOUT_MS));
-      // ESP_ERROR_CHECK(i2c_master_bus_wait_all_done(bus_handle, I2C_TIMEOUT_MS));
+      while (arg_int > 0) {
+        buffer[bufferHighPoint++] = *data_ptr;
+        data_ptr++;
+        arg_int--;
+      }
+      // ESP_ERROR_CHECK(i2c_master_bus_wait_all_done(bus_handle,
+      // I2C_TIMEOUT_MS));
 #else
       while (arg_int > 0) {
         ESP_ERROR_CHECK(
@@ -200,8 +206,9 @@ uint8_t u8g2_esp32_i2c_byte_cb(u8x8_t* u8x8,
     }
 
     case U8X8_MSG_BYTE_START_TRANSFER: {
-      ESP_LOGI(TAG, "start");
-#ifndef USE_NEW_HAL_DRIVER
+#ifdef USE_NEW_HAL_DRIVER
+      bufferHighPoint = 0;
+#else
       uint8_t i2c_address = u8x8_GetI2CAddress(u8x8);
       handle_i2c = i2c_cmd_link_create();
       ESP_LOGD(TAG, "Start I2C transfer to %02X.", i2c_address >> 1);
@@ -213,8 +220,11 @@ uint8_t u8g2_esp32_i2c_byte_cb(u8x8_t* u8x8,
     }
 
     case U8X8_MSG_BYTE_END_TRANSFER: {
-      ESP_LOGI(TAG, "stop");
-#ifndef USE_NEW_HAL_DRIVER
+#ifdef USE_NEW_HAL_DRIVER
+      ESP_ERROR_CHECK(i2c_master_transmit(dev_handle, buffer, bufferHighPoint,
+                                          I2C_TIMEOUT_MS));
+#else
+
       ESP_LOGD(TAG, "End I2C transfer.");
       ESP_ERROR_CHECK(i2c_master_stop(handle_i2c));
       ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_MASTER_NUM, handle_i2c,
